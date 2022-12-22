@@ -28,6 +28,7 @@ vec3 blend(vec3 a, vec3 b)
 #endif
 
 #ifdef INTERPOLATION
+	// http://www.pegtop.net/delphi/articles/blendmodes/interpolation.htm
 	return (2.0 - cos(PI * a) - cos(PI * b)) / 4.0;
 #endif
 
@@ -186,6 +187,7 @@ vec3 blend(vec3 a, vec3 b)
 #endif
 
 #ifdef HARD_LIGHT_SWAP
+	// Photoshop Overlay
 	return vec3(
 		a.x < 0.5 ? 2 * a.x * b.x : (1.0 - 2.0 * (1.0 - a.x) * (1.0 - b.x)),
 		a.y < 0.5 ? 2 * a.y * b.y : (1.0 - 2.0 * (1.0 - a.y) * (1.0 - b.y)),
@@ -194,10 +196,12 @@ vec3 blend(vec3 a, vec3 b)
 #endif
 
 #ifdef SOFT_LIGHT
+	// This is a simplified version of Photoshop Soft Light with the layers swapped.
 	return 2 * a * b + b * b * (1.0 - 2.0 * a);
 #endif
 
 #ifdef SOFT_LIGHT_SWAP
+	// This is a simplified version of Photoshop Soft Light.
 	return 2 * a * b + a * a * (1.0 - 2.0 * b);
 #endif
 
