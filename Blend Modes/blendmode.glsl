@@ -16,10 +16,65 @@ uniform ivec4 rectB;
 
 in vec4 vertTexCoord;
 
+#ifdef HSL
+
+vec3 rgb2hsl(vec3 c)
+{
+	float min = min(min(c.x, c.y), c.z);
+	float max = max(max(c.x, c.y), c.z);
+
+	float h = 0.0;
+	float s = max - min;
+	float l = c.x * 0.299 + c.y * 0.587 + c.z * 0.114;
+
+	if (s > 0.0) {
+		if (c.x == max) h = (c.y - c.z) / s + (c.y < c.z ? 6.0 : 0.0);
+		if (c.y == max) h = (c.z - c.x) / s + 2;
+		if (c.z == max) h = (c.x - c.y) / s + 4;
+		h /= 6.0;
+	}
+
+	return vec3(h, s, l);
+}
+
+float hue2channel(float p, float q, float t)
+{
+	if (t < 0.0) t += 1.0;
+	if (t > 1.0) t -= 1.0;
+	if (t < 1.0 / 6.0) return p + (q - p) * 6.0 * t;
+	if (t < 1.0 / 2.0) return q;
+	if (t < 2.0 / 3.0) return p + (q - p) * (2.0 / 3.0 - t) * 6.0;
+	return p;
+}
+
+vec3 hsl2rgb(vec3 c)
+{
+	if (c.y == 0.0) return vec3(c.z, c.z, c.z);
+
+	float q = c.z < 0.5 ? c.z * (1 + c.y) : (c.z + c.y - c.z * c.y);
+  float p = 2 * c.z - q;
+
+  float r = hue2channel(p, q, c.x + 1.0 / 3.0);
+  float g = hue2channel(p, q, c.x);
+  float b = hue2channel(p, q, c.x - 1.0 / 3.0);
+
+	return vec3(r, g, b);
+}
+
+#endif
+
 // a = Background / Bottom Layer (x-axis) / Source
 // b = Foreground / Top Layer (y-axis) / Destination
 vec3 blend(vec3 a, vec3 b)
 {
+
+#ifdef SOURCE
+	return a;
+#endif
+
+#ifdef DESTINATION
+	return b;
+#endif
 
 //
 
@@ -136,6 +191,14 @@ vec3 blend(vec3 a, vec3 b)
 	return sqrt((a + b) / 2.0);
 #endif
 
+#ifdef DARKER_COLOR
+	return (a.x * 0.2989 + a.y * 0.587 + a.z * 0.114) < (b.x * 0.2989 + b.y * 0.587 + b.z * 0.114) ? a : b;
+#endif
+
+#ifdef LIGHTER_COLOR
+	return (a.x * 0.2989 + a.y * 0.587 + a.z * 0.114) > (b.x * 0.2989 + b.y * 0.587 + b.z * 0.114) ? a : b;
+#endif
+
 #ifdef FREEZE
 	return 1.0 - (1.0 - a) * (1.0 - a)  / b;
 #endif
@@ -152,11 +215,11 @@ vec3 blend(vec3 a, vec3 b)
 	return b * b / (1.0 - a);
 #endif
 
-#ifdef SHRINK
+#ifdef HAZE
 	return a + b + a * b - a * a - b * b;
 #endif
 
-#ifdef MAGNIFY
+#ifdef GLARE
 	return a * a + b * b - a * b;
 #endif
 
@@ -301,6 +364,110 @@ vec3 blend(vec3 a, vec3 b)
 
 #ifdef SOLARIZATION_INVERT
 	return sqrt(((2.0 * a - 1.0) * (2.0 * a - 1.0) + (2.0 * b - 1.0) * (2.0 * b - 1.0)) / 2.0);
+#endif
+
+//
+
+#ifdef HUE
+	vec3 hsl = rgb2hsl(a);
+	hsl.x = rgb2hsl(b).x;
+	hsl.y = rgb2hsl(b).y;
+	return hsl2rgb(hsl);
+#endif
+
+#ifdef SATURATION
+	vec3 hsl = rgb2hsl(a);
+	hsl.y = rgb2hsl(b).y;
+	return hsl2rgb(hsl);
+#endif
+
+#ifdef COLOR
+	vec3 hsl = rgb2hsl(a);
+	hsl.x = rgb2hsl(b).x;
+	hsl.y = rgb2hsl(b).y;
+	return hsl2rgb(hsl);
+#endif
+
+#ifdef LUMINOSITY
+	float a_l = a.x * 0.299 + a.y * 0.587 + a.z * 0.114;
+	float b_l = b.x * 0.299 + b.y * 0.587 + b.z * 0.114;
+
+	float d = a_l - b_l;
+
+	return vec3(a.x - d, a.y - d, a.z - d);
+#endif
+
+#ifdef LUMINOSITY_SWAP
+	float a_l = a.x * 0.299 + a.y * 0.587 + a.z * 0.114;
+	float b_l = b.x * 0.299 + b.y * 0.587 + b.z * 0.114;
+
+	float d = b_l - a_l;
+
+	return vec3(b.x - d, b.y - d, b.z - d);
+#endif
+
+#ifdef LIGHTNESS
+	float a_min = min(min(a.x, a.y), a.z);
+	float a_max = max(max(a.x, a.y), a.z);
+	float a_l = (a_max + a_min) / 2.0;
+
+	float b_min = min(min(b.x, b.y), b.z);
+	float b_max = max(max(b.x, b.y), b.z);
+	float b_l = (b_max + b_min) / 2.0;
+
+	float d = a_l - b_l;
+
+	return vec3(a.x - d, a.y - d, a.z - d);
+#endif
+
+#ifdef LIGHTNESS_SWAP
+	float a_min = min(min(a.x, a.y), a.z);
+	float a_max = max(max(a.x, a.y), a.z);
+	float a_l = (a_max + a_min) / 2.0;
+
+	float b_min = min(min(b.x, b.y), b.z);
+	float b_max = max(max(b.x, b.y), b.z);
+	float b_l = (b_max + b_min) / 2.0;
+
+	float d = b_l - a_l;
+
+	return vec3(b.x - d, b.y - d, b.z - d);
+#endif
+
+#ifdef BRIGHTNESS
+	float a_l = (a.x + a.y + a.z) / 3.0;
+	float b_l = (b.x + b.y + b.z) / 3.0;
+
+	float d = a_l - b_l;
+
+	return vec3(a.x - d, a.y - d, a.z - d);
+#endif
+
+#ifdef BRIGHTNESS_SWAP
+	float a_l = (a.x + a.y + a.z) / 3.0;
+	float b_l = (b.x + b.y + b.z) / 3.0;
+
+	float d = b_l - a_l;
+
+	return vec3(b.x - d, b.y - d, b.z - d);
+#endif
+
+#ifdef EUCLIDEAN
+	float a_l = sqrt((a.x * a.x + a.y * a.y + a.z * a.z) / 3.0);
+	float b_l = sqrt((b.x * b.x + b.y * b.y + b.z * b.z) / 3.0);
+
+	float d = a_l - b_l;
+
+	return vec3(a.x - d, a.y - d, a.z - d);
+#endif
+
+#ifdef EUCLIDEAN_SWAP
+	float a_l = sqrt((a.x * a.x + a.y * a.y + a.z * a.z) / 3.0);
+	float b_l = sqrt((b.x * b.x + b.y * b.y + b.z * b.z) / 3.0);
+
+	float d = b_l - a_l;
+
+	return vec3(b.x - d, b.y - d, b.z - d);
 #endif
 
 }
